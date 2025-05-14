@@ -1,0 +1,4 @@
+/home/tima/Unix_web_programming/network_application/build/CMakeFiles/server.dir
+/home/tima/Unix_web_programming/network_application/build/CMakeFiles/client.dir
+/home/tima/Unix_web_programming/network_application/build/CMakeFiles/edit_cache.dir
+/home/tima/Unix_web_programming/network_application/build/CMakeFiles/rebuild_cache.dir
