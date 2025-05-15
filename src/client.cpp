@@ -44,8 +44,9 @@ std::string get_message(int connection, int size) // собираем само �
 std::string recieve_msg_to_autorizate(int connect)
 {
     int msg_size = get_message_size(connect);
-    if (msg_size <= 0) {
-
+    if (msg_size <= 0)
+    {
+        std::cout << "я в recieve_msg_to_autorizate" << std::endl;
         std::cout << "Соединение с сервером разорвано." << std::endl;
         close(connect);
         return "";
@@ -67,8 +68,9 @@ void Recieve_msg(int connect)
     while (true) 
     {
         int msg_size = get_message_size(connect);
-        if (msg_size <= 0) {
-
+        if (msg_size <= 0)
+        {
+            std::cout << "я в Recieve_msg" << std::endl;
             std::cout << "Соединение с сервером разорвано." << std::endl;
             close(connect);
             return;
@@ -90,6 +92,70 @@ void Recieve_msg(int connect)
             return;
         }
     }
+}
+
+std::string keyGen() // Генератор рандомных ключей
+{
+    const int len = 32;
+    std::string key;
+    key.resize(len);
+    std::string letters = "_@0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    int size_alpha = letters.size();
+
+    for(int i = 0; i < len; i++)
+    {
+        key[i] = letters[rand()%size_alpha];
+    }
+
+    return key;
+}
+
+std::string passGen() // Генератор рандомных паролей
+{
+    const int len = 32;
+    std::string password;
+    std::string key = keyGen();
+    password.resize(len);
+
+    for(int i =0; i < len; i++)
+    {
+        password[i] = key[rand()%key.size()];
+    }
+
+    return password;
+}
+
+int checkPassword(std::string &pass)
+{
+    int count_spec_symb = 0;
+    int count_high_lett = 0;
+    int count_nums = 0;
+
+    for(char c: pass)
+    {
+        if( isdigit(c) != 0 )
+        {
+            count_nums++;
+        }
+        else if( c >= 65 && c <= 90 )
+        {
+            count_high_lett++;
+        }
+        else if( c == '_' || c == '@' )
+        {
+            count_spec_symb++;
+        }
+    }
+
+    if( count_high_lett > 0 && count_nums > 0 )
+    {
+        return 2;
+    }
+    else if( count_high_lett > 0 && count_nums > 0 && count_spec_symb > 0 )
+    {
+        return 1;
+    }
+    return 0;
 }
 
 std::vector <std::string> Parse(std::string str_in) 
@@ -184,7 +250,7 @@ int main(int argc,char* argv[])
         getline(std::cin,command);
         parse_com = Parse(command);
 
-        if(parse_com[0] == "exit" || parse_com[0] == "Exit")
+        if(parse_com[0].compare("exit") == 0 || parse_com[0].compare("Exit") == 0 )
         {
             try
             {
@@ -200,6 +266,28 @@ int main(int argc,char* argv[])
             {
                 std::cerr << e.what() << '\n';
             }
+        }
+        else if( parse_com[0].compare("--c") == 0 )
+        {
+            std::string gen_pass = passGen();
+            if(checkPassword(gen_pass) == 2)
+            {
+                std::cout << "Пароль не слишком криптоскойкий, но подходит под условия эксплуатации" << std::endl;
+            }
+            else if(checkPassword(gen_pass) == 1)
+            {
+                std::cout << "Пароль криптостойкий" << std::endl;
+            }
+            else
+            {
+                std::cout << "Пароль не криптостойкий" << std::endl;
+                gen_pass = "";
+            }
+
+            command.append(" ");
+            command.append(gen_pass);
+
+            std::cout << command << std::endl;
         }
 
         msg_size = command.size();

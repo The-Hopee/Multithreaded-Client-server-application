@@ -2,7 +2,6 @@
 #include <thread>
 #include <iostream>
 #include <vector>
-#include <mutex>
 #include <algorithm>
 #include <fstream>
 #include <random>
@@ -11,7 +10,7 @@
 #define ULL unsigned long long
 
 std::vector<int> clients;
-std::mutex client_mutex;
+// нужно написать std::vector<int> autorizations;
 
 std::vector <std::string> Parse(std::string str_in) 
 {
@@ -52,8 +51,6 @@ private:
     std::vector<init> init_data;
     std::vector<ULL> generated_ids;
 
-    std::mutex m;
-
     void init_admin_data()
     {
         std::ifstream fin("init.txt");
@@ -92,57 +89,42 @@ private:
 
     }
 
-    // void distruct_ids()
-    // {
-    //     std::ofstream fout("generated_ids.txt");
-    //     //Реализовать чтение данных из файла init.txt
-
-    //     if( !fout.is_open() )
-    //     {
-    //         throw std::string("Ошибка открытия файла generated_ids.txt");
-    //     }
-
-    //     for(auto it: generated_ids)
-    //     {
-    //         fout << it << "\n";
-    //     }
-    // }
-
-    // void distruct()
-    // {
-    //     //Реализовать запись данных в файл init.txt
-
-    //     std::ofstream fout("init.txt");
-
-    //     if(! fout.is_open() )
-    //     {
-    //         throw std::string("Ошибка открытия файла init.txt");
-    //     }
-
-    //     for(auto it: init_data)
-    //     {
-    //         fout << it.login << "\t" << it.password << "\t" << it.id << "\n";
-    //     }
-    // }
-
-    ULL generate_id() // ПОЛОМКА ЗДЕСЬ
+    void distruct_ids()
     {
-        // std::cout << "Я тут" << std::endl;
-        // //Создаем генератор
-        // std::random_device rd;
-        // std::cout << "Я тут" << std::endl;
-        // std::mt19937_64 gen(rd());
-        // std::cout << "Я тут" << std::endl;
+        std::ofstream fout("generated_ids.txt");
+        //Реализовать чтение данных из файла init.txt
 
-        // // Создаем распределение
-        // std::uniform_int_distribution<> distrib(0,UINT64_MAX);
-        // std::cout << "Я тут" << std::endl;
+        if( !fout.is_open() )
+        {
+            throw std::string("Ошибка открытия файла generated_ids.txt");
+        }
 
-        // return (ULL)distrib(gen); //Генерируем число и возвращаем его
+        for(auto it: generated_ids)
+        {
+            fout << it << "\n";
+        }
+    }
 
-        srand(time(0));
+    void distruct()
+    {
+        //Реализовать запись данных в файл init.txt
 
-        return rand()% 1'000'000;
+        std::ofstream fout("init.txt");
+
+        if(! fout.is_open() )
+        {
+            throw std::string("Ошибка открытия файла init.txt");
+        }
+
+        for(auto it: init_data)
+        {
+            fout << it.login << "\t" << it.password << "\t" << it.id << "\n";
+        }
+    }
+
+    ULL generate_id()
+    {
+        return rand() % 1'000'000;
     }
 
 public:
@@ -206,15 +188,16 @@ public:
 
     std::string info()
     {
-        std::string msg = "----------------------------------------------------------------------------------------------------------------------------------------------\n";
-        msg += "- -h/--help. Выводит справку о доступных командах                                                                                            -\n";
-        msg += "- Exit/exit. Производит отключение клиента от сервера и последующую запись его данных на диск.                                               -\n";
-        msg += "- -c/--create servis,login,pass Создает запись в хранилище по определенному. Если запись есть, то сообщает об этом.                          -\n";
-        msg += "- -f/--find servis,login. Ищет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                   -\n";
-        msg += "- -d/--delete servis,login. Удаляет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.              -\n";
-        msg += "- -e/--edit servis,login. Редактирует запись в хранилище по определенному сервису и логину Если записи нет, то сообщает об этом.             -\n";
-        msg += "- -p/--print servis,login/servis. Отображает запись по сервису, по сервису и логину. Если записи нет, то сообщает об этом.                   -\n";
-        msg += "----------------------------------------------------------------------------------------------------------------------------------------------\n";
+        std::string msg = "---------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
+        msg += "- -h/--help. Выводит справку о доступных командах                                                                                                                        -\n";
+        msg += "- Exit/exit. Производит отключение клиента от сервера и последующую запись его данных на диск.                                                                           -\n";
+        msg += "- -c/--create servis,login,pass Создает запись в хранилище по определенному сервису и логину. Если запись есть, то сообщает об этом.                                     -\n";
+        msg += "- --c servis,login,pass Создает запись в хранилище по определенному сервису и логину. Только здесь генерация пароля автоматическая Если запись есть, то сообщает об этом.-\n";
+        msg += "- -f/--find servis,login. Ищет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                                               -\n";
+        msg += "- -d/--delete servis,login. Удаляет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                                          -\n";
+        msg += "- -e/--edit servis,login. Редактирует запись в хранилище по определенному сервису и логину Если записи нет, то сообщает об этом.                                         -\n";
+        msg += "- -p/--print servis,login/servis. Отображает запись по сервису, по сервису и логину. Если записи нет, то сообщает об этом.                                               -\n";
+        msg += "--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
         return msg;
     }
 
@@ -432,15 +415,15 @@ public:
 
     ~Storage()
     {
-        // try
-        // {
-        //     distruct();
-        //     distruct_ids();
-        // }
-        // catch(const std::string& e)
-        // {
-        //     std::cerr << e << '\n';
-        // }
+        try
+        {
+            distruct();
+            distruct_ids();
+        }
+        catch(const std::string& e)
+        {
+            std::cerr << e << '\n';
+        }
         
     }
 
@@ -526,12 +509,18 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
         if(parse_com[0] == "exit" || parse_com[0] == "Exit" )
         {
             s.exit_user(id); // Запускаем протокол выхода
+
             auto it = std::find(clients.begin(), clients.end(), connection); // находим айли номера
             clients.erase(it); // удаляем из списка подключенных клиентов
+
             std::cout << "Клиент " << connection << " отключился" << std::endl;
+
             msg_to_send = "Вы покинули сервер";
+
             send_message(connection,msg_to_send);
+
             close(connection); //  отключаем клиента
+
             return;
         }
         else if( parse_com[0]== "-h" || parse_com[0] == "--help" )
@@ -548,7 +537,20 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
             }
             else
             {
-                msg_to_send = "Ошибка. Недостаточно параметров для метода create\n";
+                msg_to_send = "Ошибка. Неверное количество параметров для метода create\n";
+            }
+
+            send_message(connection,msg_to_send);
+        }
+        else if( parse_com[0] == "--c")
+        {
+            if( parse_com.size() == 4 )
+            {
+                msg_to_send = s.NewData(parse_com[1],parse_com[2],parse_com[3],id);
+            }
+            else
+            {
+                msg_to_send = "Ошибка. Неверное количество параметров для метода create\n";
             }
 
             send_message(connection,msg_to_send);
@@ -569,7 +571,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
             }
             else
             {
-                msg_to_send = "Ошибка. Недостаточно параметров для метода find\n";
+                msg_to_send = "Ошибка. Неверное количество параметров для метода find\n";
             }
 
             send_message(connection,msg_to_send);
@@ -590,7 +592,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
             }
             else
             {
-                msg_to_send = "Ошибка. Недостаточно параметров для метода print\n";
+                msg_to_send = "Ошибка. Неверное количество параметров для метода print\n";
             }
 
             send_message(connection,msg_to_send);
@@ -603,7 +605,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
             }
             else
             {
-                msg_to_send = "Ошибка. Недостаточно параметров для метода edit\n";
+                msg_to_send = "Ошибка. Неверное количество параметров для метода edit\n";
             }
 
             send_message(connection,msg_to_send);
@@ -620,7 +622,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
             } 
             else
             {
-                msg_to_send = "Ошибка. Недостаточно параметров для метода delete\n";
+                msg_to_send = "Ошибка. Неверное количество параметров для метода delete\n";
             }
 
             send_message(connection,msg_to_send);
@@ -634,28 +636,11 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
     }
 }
 
-/*
-    Нужно построить между клиентом и сервером шифрование данных. Т.е
-    Клиент должен отправлять данные, они должны шифроваться на его стороне, 
-    а на стороне сервера дешифроваться и также со стороной сервера.
-*/
-
-/*
-    1) Написать функцию для авторизации и закинуть ее в отдельный тред
-    Так я получу прирост в производительности и "постоянную" многопоточность
-
-    2) У меня выскакивает ошибка поломки стека. Нужно понять как от нее избавиться
-*/
-
 int main()
 {
-    Storage s;
-    // После создания объекта хранилища, нужно считать с диска файл init.txt в котором
-    // будут данные по всем юзерам и их id
-    // а как только зайдет какой-то конкретный юзер нужно на сторону клиента послать его id
-    // и затем клиент как раз откроет свой файлик. Это нужно для безопасности
+    srand(time(0));
 
-    //Здесь будет проверка на авторизацию, затем если все гуд, будет процесс инициализации
+    Storage s;
 
     int server_sock = socket(AF_INET, SOCK_STREAM,0);
 
@@ -697,15 +682,13 @@ int main()
 
     while(true)
     {
-        newConnection = accept(server_sock,(sockaddr*)&server_addr, &client_len); //682 -759 процесс авторизации
+        newConnection = accept(server_sock,(sockaddr*)&server_addr, &client_len); //682 - 759 процесс авторизации
 
         if( newConnection <= 0)
         {
             std::cerr << "Ошибка соединения" << std::endl;
             return -1;
         }
-        
-        // Здесь должен быть построен протокол аутентификации и авторизации
 
         msg_size = get_message_size(newConnection);
         msg_from_client = get_message(newConnection,msg_size);
@@ -736,7 +719,7 @@ int main()
 
             s.enter_user(id);
         }
-        else // Построить протокол общения
+        else
         {
             msg_to_client = "Ошибка ввода. Хотите зарегестрироваться?(Введите Да или Нет): ";
             msg_size = msg_to_client.size();
