@@ -2,6 +2,39 @@
 #include <thread>
 #include <vector>
 #include "hfa.h"
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/rijndael.h>
+#include <cryptopp/files.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/hex.h>
+
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/base64.h>
+
+using namespace CryptoPP;
+
+std::string key = "E9VwaE4nI8YElBMcdQE8guOWRc99d0cq";
+std::string iv = "ZEkY3CvOENM1gu9xdb0t8fWQ2XPtZUgO";
+
+std::string Encrypt(std::string str, std::string cipher, std::string iv) 
+{ 
+    //функция которая шифрует наш стринг/string с помощью уникальных ключей cipher и iv, возвращает зашифрованный текст(std::string).
+    std::string Output;
+    CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption Encryption((byte*)cipher.c_str(), cipher.length(), (byte*)iv.c_str());
+    CryptoPP::StringSource Encryptor(str, true, new CryptoPP::StreamTransformationFilter(Encryption, new CryptoPP::Base64Encoder(new CryptoPP::StringSink(Output), false)));
+    return Output;
+}
+
+std::string Decrypt(std::string str, std::string cipher, std::string iv) 
+{ 
+    //функция которая расшифрует зашифрованный стринг/string с помощью уникальных ключей cipher i iv, возвращает расшифрованный текст(std::string).
+    std::string Output;
+    CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption Decryption((byte*)cipher.c_str(), cipher.length(), (byte*)iv.c_str());
+    CryptoPP::StringSource Decryptor(str, true, new CryptoPP::Base64Decoder(new CryptoPP::StreamTransformationFilter(Decryption, new CryptoPP::StringSink(Output))));
+    return Output;
+}
+
 
 int get_message_size(int connection) // собираем размер сообщения
 {
@@ -46,7 +79,6 @@ std::string recieve_msg_to_autorizate(int connect)
     int msg_size = get_message_size(connect);
     if (msg_size <= 0)
     {
-        std::cout << "я в recieve_msg_to_autorizate" << std::endl;
         std::cout << "Соединение с сервером разорвано." << std::endl;
         close(connect);
         return "";
@@ -70,23 +102,23 @@ void Recieve_msg(int connect)
         int msg_size = get_message_size(connect);
         if (msg_size <= 0)
         {
-            std::cout << "я в Recieve_msg" << std::endl;
             std::cout << "Соединение с сервером разорвано." << std::endl;
             close(connect);
             return;
         }
 
         std::string msg = get_message(connect, msg_size);
-        if (msg.empty()) 
+        std::string decrypt_msg = Decrypt(msg,key,iv);
+        if (decrypt_msg.empty()) 
         {
             std::cerr << "Ошибка при получении сообщения." << std::endl;
             close(connect);
             return;
         }
 
-        std::cout << msg << std::endl;
+        std::cout << decrypt_msg << std::endl;
 
-        if (msg.compare("Вы покинули сервер") == 0) 
+        if (decrypt_msg.compare("Вы покинули сервер") == 0) 
         {
             close(connect);
             return;
@@ -178,10 +210,6 @@ std::vector <std::string> Parse(std::string str_in)
 	return vec;
 }
 
-// Сделать полноценное отсоединение клиента (протокол выхода с сохранением данных клиента, сохранением его логина id и пароля) 
-// Если пользователь введет "нет" при ответе на такой сценарий. Нужно обработать такое событие
-// Сервер падает при вводе только логина. Нужно исправить
-
 int main(int argc,char* argv[])
 {
 
@@ -189,6 +217,23 @@ int main(int argc,char* argv[])
     addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     addr.sin_port = htons(1111);
     addr.sin_family = AF_INET;
+
+    std::string command, answer,encrypt_command,decrypt_command;
+    int msg_size = 0;
+
+    std::cout << "Введите логин и пароль(Через пробел): ";
+    getline(std::cin, command);
+
+    std::vector<std::string> parse_com = Parse(command);
+
+    if( parse_com.size() != 2 )
+    {
+        std::cerr << "Неверное количество параметров. Попробуйте позже.\n";
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+        return -1;
+    }
 
     int connection = socket(AF_INET,SOCK_STREAM, 0);
 
@@ -200,41 +245,35 @@ int main(int argc,char* argv[])
 
     std::cout << "Соединение установлено!" << std::endl;
 
-    std::string command, answer;
-    int msg_size = 0;
-
-    std::vector<std::string> parse_com;
-
-    std::cout << "Введите логин и пароль(Через пробел): ";
-    getline(std::cin, command);
+    encrypt_command = Encrypt(command,key,iv);
     
-    msg_size = command.size();
+    msg_size = encrypt_command.size();
+
     send(connection,(char*)&msg_size,sizeof(int),0);
-    send(connection,command.c_str(),command.size(),0);
+    send(connection,encrypt_command.c_str(),encrypt_command.size(),0);
 
     answer = recieve_msg_to_autorizate(connection);
+    decrypt_command = Decrypt(answer,key,iv);
 
-    std::cout << answer << std::endl;
+    std::cout << decrypt_command << std::endl;
 
-    if( answer.compare("Неверное количество параметров. Попробуйте позже.") == 0)
-    {
-        close(connection);
-        return -1;
-    }
-
-    if(answer.compare("Добро пожаловать в систему.") != 0)
+    if(decrypt_command.compare("Добро пожаловать в систему.") != 0)
     {
         getline(std::cin, command);
 
-        msg_size = command.size();
+        encrypt_command = Encrypt(command,key,iv);
+
+        msg_size = encrypt_command.size();
         send(connection,(char*)&msg_size,sizeof(int),0);
-        send(connection,command.c_str(),command.size(),0);
+        send(connection,encrypt_command.c_str(),encrypt_command.size(),0);
 
         answer = recieve_msg_to_autorizate(connection);
 
-        std::cout << answer << std::endl;
+        decrypt_command = Decrypt(answer,key,iv);
 
-        if( answer.compare("Добро пожаловать в систему.") != 0 )
+        std::cout << decrypt_command << std::endl;
+
+        if( decrypt_command.compare("Добро пожаловать в систему.") != 0 )
         {
             close(connection);
             return -1;
@@ -250,17 +289,17 @@ int main(int argc,char* argv[])
         getline(std::cin,command);
         parse_com = Parse(command);
 
-        if(parse_com[0].compare("exit") == 0 || parse_com[0].compare("Exit") == 0 )
+        if( parse_com[0].compare("exit") == 0 || parse_com[0].compare("Exit") == 0 )
         {
             try
             {
                 std::cout << "Отсоединение от сервера...\n";
-                msg_size = command.size();
+                encrypt_command = Encrypt(command,key,iv);
+                msg_size = encrypt_command.size();
                 send(connection,(char*)&msg_size,sizeof(int),0);
-                send(connection,command.c_str(),command.size(),0); 
+                send(connection,encrypt_command.c_str(),encrypt_command.size(),0); 
 
                 break;
-
             }
             catch(const std::exception& e)
             {
@@ -270,30 +309,42 @@ int main(int argc,char* argv[])
         else if( parse_com[0].compare("--c") == 0 )
         {
             std::string gen_pass = passGen();
-            if(checkPassword(gen_pass) == 2)
+            if( checkPassword(gen_pass) == 2 )
             {
                 std::cout << "Пароль не слишком криптоскойкий, но подходит под условия эксплуатации" << std::endl;
+                command.append(" ");
+                command.append(gen_pass);
             }
-            else if(checkPassword(gen_pass) == 1)
+            else if( checkPassword(gen_pass) == 1 )
             {
                 std::cout << "Пароль криптостойкий" << std::endl;
+                command.append(" ");
+                command.append(gen_pass);
             }
             else
             {
                 std::cout << "Пароль не криптостойкий" << std::endl;
                 gen_pass = "";
             }
-
-            command.append(" ");
-            command.append(gen_pass);
-
-            std::cout << command << std::endl;
+        }
+        else if( parse_com[0].compare("-c") == 0 || parse_com[0].compare("--create") == 0 )
+        {
+            if(parse_com[3].size() < 8)
+            {
+                std::cerr << "Ошибка. Длина пароля меньше 8ми символов. Допустимая длина от 8 до 32 символов!" << std::endl;
+            }
+            else if( parse_com[3].size() > 32 )
+            {
+                std::cerr << "Ошибка. Длина пароля больше 32х символов. Допустимая длина от 8 до 32 символов!" << std::endl;
+            }
         }
 
-        msg_size = command.size();
+        encrypt_command = Encrypt(command,key,iv); //Шифруем команду. Эта переменная будет отправляться на сокет сервера
+
+        msg_size = encrypt_command.size();
 
         send(connection,(char*)&msg_size,sizeof(int),0);
-        send(connection,command.c_str(),command.size(),0); 
+        send(connection,encrypt_command.c_str(),encrypt_command.size(),0);
     }
 
     try

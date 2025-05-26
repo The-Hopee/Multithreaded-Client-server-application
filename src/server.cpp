@@ -5,12 +5,44 @@
 #include <algorithm>
 #include <fstream>
 #include <random>
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/rijndael.h>
+#include <cryptopp/files.h>
+#include <cryptopp/osrng.h>
+#include <cryptopp/hex.h>
+
+#include <cryptopp/aes.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/base64.h>
+
+using namespace CryptoPP;
 
 #define MAX_CLIENTS 1024
 #define ULL unsigned long long
 
 std::vector<int> clients;
 // нужно написать std::vector<int> autorizations;
+
+std::string Encrypt(std::string str, std::string cipher, std::string iv) 
+{ 
+    //функция которая шифрует наш стринг/string с помощью уникальных ключей cipher и iv, возвращает зашифрованный текст(std::string).
+    std::string Output;
+    CryptoPP::CFB_Mode<CryptoPP::AES>::Encryption Encryption((byte*)cipher.c_str(), cipher.length(), (byte*)iv.c_str());
+    CryptoPP::StringSource Encryptor(str, true, new CryptoPP::StreamTransformationFilter(Encryption, new CryptoPP::Base64Encoder(new CryptoPP::StringSink(Output), false)));
+    return Output;
+}
+
+std::string Decrypt(std::string str, std::string cipher, std::string iv) 
+{ 
+    //функция которая расшифрует зашифрованный стринг/string с помощью уникальных ключей cipher i iv, возвращает расшифрованный текст(std::string).
+    std::string Output;
+    CryptoPP::CFB_Mode<CryptoPP::AES>::Decryption Decryption((byte*)cipher.c_str(), cipher.length(), (byte*)iv.c_str());
+    CryptoPP::StringSource Decryptor(str, true, new CryptoPP::Base64Decoder(new CryptoPP::StreamTransformationFilter(Decryption, new CryptoPP::StringSink(Output))));
+    return Output;
+}
+
+std::string key = "E9VwaE4nI8YElBMcdQE8guOWRc99d0cq";
+std::string iv = "ZEkY3CvOENM1gu9xdb0t8fWQ2XPtZUgO";
 
 std::vector <std::string> Parse(std::string str_in) 
 {
@@ -66,7 +98,9 @@ private:
 
         while( fin >> val1 >> val2 >> val3 )
         {
-            init_data.push_back({val1,val2,val3});
+            std::string decrypt_login = Decrypt(val1, key, iv);
+            std::string decrypt_password = Decrypt(val2, key, iv);
+            init_data.push_back({decrypt_login,decrypt_password,val3});
         }
     }
 
@@ -92,7 +126,6 @@ private:
     void distruct_ids()
     {
         std::ofstream fout("generated_ids.txt");
-        //Реализовать чтение данных из файла init.txt
 
         if( !fout.is_open() )
         {
@@ -107,18 +140,18 @@ private:
 
     void distruct()
     {
-        //Реализовать запись данных в файл init.txt
-
         std::ofstream fout("init.txt");
 
-        if(! fout.is_open() )
+        if( !fout.is_open() )
         {
             throw std::string("Ошибка открытия файла init.txt");
         }
 
         for(auto it: init_data)
         {
-            fout << it.login << "\t" << it.password << "\t" << it.id << "\n";
+            std::string encrypt_login = Encrypt(it.login,key,iv);
+            std::string encrypt_password = Encrypt(it.password,key,iv);
+            fout << encrypt_login << "\t" << encrypt_password << "\t" <<  it.id << "\n";
         }
     }
 
@@ -140,7 +173,6 @@ public:
         {
             std::cerr << e << '\n';
         }
-        
     }
 
     std::string Print(ULL id)
@@ -188,16 +220,16 @@ public:
 
     std::string info()
     {
-        std::string msg = "---------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
-        msg += "- -h/--help. Выводит справку о доступных командах                                                                                                                        -\n";
-        msg += "- Exit/exit. Производит отключение клиента от сервера и последующую запись его данных на диск.                                                                           -\n";
-        msg += "- -c/--create servis,login,pass Создает запись в хранилище по определенному сервису и логину. Если запись есть, то сообщает об этом.                                     -\n";
-        msg += "- --c servis,login,pass Создает запись в хранилище по определенному сервису и логину. Только здесь генерация пароля автоматическая Если запись есть, то сообщает об этом.-\n";
-        msg += "- -f/--find servis,login. Ищет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                                               -\n";
-        msg += "- -d/--delete servis,login. Удаляет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                                          -\n";
-        msg += "- -e/--edit servis,login. Редактирует запись в хранилище по определенному сервису и логину Если записи нет, то сообщает об этом.                                         -\n";
-        msg += "- -p/--print servis,login/servis. Отображает запись по сервису, по сервису и логину. Если записи нет, то сообщает об этом.                                               -\n";
-        msg += "--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
+        std::string msg = "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
+        msg += "- -h/--help. Выводит справку о доступных командах                                                                                                                          -\n";
+        msg += "- Exit/exit. Производит отключение клиента от сервера и последующую запись его данных на диск.                                                                             -\n";
+        msg += "- -c/--create servis,login,pass Создает запись в хранилище по определенному сервису и логину. Если запись есть, то сообщает об этом.                                       -\n";
+        msg += "- --c servis,login Создает запись в хранилище по определенному сервису и логину. Только здесь генерация пароля автоматическая Если запись есть, то сообщает об этом.       -\n";
+        msg += "- -f/--find servis,login. Ищет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                                                 -\n";
+        msg += "- -d/--delete servis,login. Удаляет запись в хранилище по определенному сервису и логину. Если записи нет, то сообщает об этом.                                            -\n";
+        msg += "- -e/--edit servis,login,newPass. Редактирует запись в хранилище по определенному сервису и логину и заменяет старый пароль на новый. Если записи нет, то сообщает об этом.-\n";
+        msg += "- -p/--print servis,login/servis. Отображает запись по сервису, по сервису и логину. Если записи нет, то сообщает об этом.                                                 -\n";
+        msg += "----------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n";
         return msg;
     }
 
@@ -215,7 +247,10 @@ public:
 
         while( fin >> val1 >> val2 >> val3 )
         {
-            storage[id].push_back({val1,val2,val3});
+            std::string decrypt_servis = Decrypt(val1,key,iv);
+            std::string decrypt_login = Decrypt(val2,key,iv);
+            std::string decrypt_password = Decrypt(val3,key,iv);
+            storage[id].push_back({decrypt_servis,decrypt_login,decrypt_password});
         }
 
         return "Данные пользователя " + name + " загружены\n";
@@ -233,8 +268,17 @@ public:
 
         for(auto it: storage[id])
         {
-            std::cout << id << "\t" <<  it.servis << "\t" << it.login << "\t" << it.password << "\n";
-            fout << it.servis << "\t" << it.login << "\t" << it.password << "\n";
+            std::string encrypt_servis = Encrypt(it.servis,key,iv);
+            std::string encrypt_login = Encrypt(it.login,key,iv);
+            std::string encrypt_password = Encrypt(it.password,key,iv);
+            fout << encrypt_servis << "\t" << encrypt_login << "\t" << encrypt_password << "\n";
+        }
+
+        auto it = storage.find(id);
+
+        if( it != storage.end() )
+        {
+            storage.erase(it);
         }
 
         fout.close();
@@ -250,7 +294,9 @@ public:
         {
             if( it.id == id )
             {
-                fout2 << it.login << "\t" << it.password << "\t" <<  it.id << "\n";
+                std::string encrypt_login = Encrypt(it.login,key,iv);
+                std::string encrypt_password = Encrypt(it.password,key,iv);
+                fout2 << encrypt_login << "\t" << encrypt_password << "\t" <<  it.id << "\n";
                 break;
             }
         }
@@ -493,7 +539,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
 
         std::string msg = get_message(connection,msg_size);
 
-        std::cout << "msg from client: " <<  msg << std::endl;
+        msg = Decrypt(msg,key,iv);
 
         if( msg.empty() )
         {
@@ -505,7 +551,6 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
         
         std::string msg_to_send;
 
-        // arr[0] = "-c", arr[1] = servis_name, arr[2] = login_name, arr[3] = password_name
         if(parse_com[0] == "exit" || parse_com[0] == "Exit" )
         {
             s.exit_user(id); // Запускаем протокол выхода
@@ -517,6 +562,8 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
 
             msg_to_send = "Вы покинули сервер";
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
+
             send_message(connection,msg_to_send);
 
             close(connection); //  отключаем клиента
@@ -526,6 +573,8 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
         else if( parse_com[0]== "-h" || parse_com[0] == "--help" )
         {
             msg_to_send = s.info();
+
+            msg_to_send = Encrypt(msg_to_send,key,iv);
 
             send_message(connection,msg_to_send);
         }
@@ -540,6 +589,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
                 msg_to_send = "Ошибка. Неверное количество параметров для метода create\n";
             }
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
         else if( parse_com[0] == "--c")
@@ -550,9 +600,10 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
             }
             else
             {
-                msg_to_send = "Ошибка. Неверное количество параметров для метода create\n";
+                msg_to_send = "Ошибка. Неверное количество параметров для метода create с автоматической генерацией паролей\n";
             }
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
         else if( parse_com[0] == "-f" || parse_com[0] == "--find" )
@@ -574,6 +625,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
                 msg_to_send = "Ошибка. Неверное количество параметров для метода find\n";
             }
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
         else if( parse_com[0] == "-p" || parse_com[0] == "--print")
@@ -595,6 +647,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
                 msg_to_send = "Ошибка. Неверное количество параметров для метода print\n";
             }
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
         else if( parse_com[0] == "-e" || parse_com[0] == "--edit" )
@@ -608,6 +661,7 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
                 msg_to_send = "Ошибка. Неверное количество параметров для метода edit\n";
             }
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
         else if( parse_com[0] == "-d" || parse_com[0] == "--delete" )
@@ -625,12 +679,14 @@ void Recieve_msg(int connection,Storage& s, ULL &id)
                 msg_to_send = "Ошибка. Неверное количество параметров для метода delete\n";
             }
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
         else
         {
             msg_to_send = "Некорректный ввод команды или данных!\n";
 
+            msg_to_send = Encrypt(msg_to_send,key,iv);
             send_message(connection,msg_to_send);
         }
     }
@@ -657,7 +713,7 @@ int main()
 
     if(bind(server_sock,(sockaddr*)&server_addr,sizeof(server_addr)))
     {
-        std::cerr << "Ошибка присоединения!" << std::endl;
+        std::cerr << "Ошибка инициализации сервера!" << std::endl;
         return -1;
     }
 
@@ -684,7 +740,7 @@ int main()
     {
         newConnection = accept(server_sock,(sockaddr*)&server_addr, &client_len); //682 - 759 процесс авторизации
 
-        if( newConnection <= 0)
+        if( newConnection <= 0 )
         {
             std::cerr << "Ошибка соединения" << std::endl;
             return -1;
@@ -693,25 +749,17 @@ int main()
         msg_size = get_message_size(newConnection);
         msg_from_client = get_message(newConnection,msg_size);
 
+        msg_from_client = Decrypt(msg_from_client,key,iv);
+
+        std::cout << msg_from_client << std::endl;
+
         std::vector<std::string> parse_com = Parse(msg_from_client);
-
-        if( parse_com.size() != 2 )
-        {
-            msg_to_client = "Неверное количество параметров. Попробуйте позже.";
-            msg_size = msg_to_client.size();
-
-            send(newConnection,(char*)&msg_size,sizeof(int),0);
-            send(newConnection,msg_to_client.c_str(),msg_size,0);
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-            close(newConnection);
-        }
 
         ULL id = s.autentificate(parse_com[0],parse_com[1]);
         if( id != -1 )
         {
             msg_to_client = "Добро пожаловать в систему.";
+            msg_to_client = Encrypt(msg_to_client,key,iv);
             msg_size = msg_to_client.size();
 
             send(newConnection,(char*)&msg_size,sizeof(int),0);
@@ -722,6 +770,8 @@ int main()
         else
         {
             msg_to_client = "Ошибка ввода. Хотите зарегестрироваться?(Введите Да или Нет): ";
+            msg_to_client = Encrypt(msg_to_client,key,iv);
+
             msg_size = msg_to_client.size();
 
             send(newConnection,(char*)&msg_size,sizeof(int),0);
@@ -730,21 +780,24 @@ int main()
             msg_size = get_message_size(newConnection);
             msg_from_client = get_message(newConnection,msg_size);
 
+            msg_from_client = Decrypt(msg_from_client,key,iv);
+
             if( msg_from_client == "Да" )
             {
                 id = s.create_user(parse_com[0],parse_com[1]);
 
                 msg_to_client = "Добро пожаловать в систему.";
                 msg_size = msg_to_client.size();
+                msg_to_client = Encrypt(msg_to_client,key,iv);
 
                 send(newConnection,(char*)&msg_size,sizeof(int),0);
                 send(newConnection,msg_to_client.c_str(),msg_size,0);
-
             }
             else
             {
                 msg_to_client = "Ошибка аутентификации. Неверный логин или пароль. Выход";
                 msg_size = msg_to_client.size();
+                msg_to_client = Encrypt(msg_to_client,key,iv);
 
                 send(newConnection,(char*)&msg_size,sizeof(int),0);
                 send(newConnection,msg_to_client.c_str(),msg_size,0);
